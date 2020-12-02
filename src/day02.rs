@@ -79,8 +79,9 @@ mod test {
             2-9 c: ccccccccc
         ";
         let count = raw
+            .trim()
             .lines()
-            .filter_map(|line| line.parse::<Input>().ok())
+            .map(|line| line.parse::<Input>().unwrap())
             .filter(|input| input.is_valid())
             .count();
         assert_eq!(count, 2);
@@ -90,8 +91,9 @@ mod test {
     fn normal1() {
         let raw = std::fs::read_to_string("data/day02.input").unwrap();
         let count = raw
+            .trim()
             .lines()
-            .filter_map(|line| line.parse::<Input>().ok())
+            .map(|line| line.parse::<Input>().unwrap())
             .filter(|input| input.is_valid())
             .count();
         assert_eq!(count, 467);
@@ -105,8 +107,9 @@ mod test {
             2-9 c: ccccccccc
         ";
         let count = raw
+            .trim()
             .lines()
-            .filter_map(|line| line.parse::<Input>().ok())
+            .map(|line| line.parse::<Input>().unwrap())
             .filter(|input| input.is_valid_2())
             .count();
         assert_eq!(count, 1);
@@ -116,8 +119,9 @@ mod test {
     fn normal2() {
         let raw = std::fs::read_to_string("data/day02.input").unwrap();
         let count = raw
+            .trim()
             .lines()
-            .filter_map(|line| line.parse::<Input>().ok())
+            .map(|line| line.parse::<Input>().unwrap())
             .filter(|input| input.is_valid_2())
             .count();
         assert_eq!(count, 441);
