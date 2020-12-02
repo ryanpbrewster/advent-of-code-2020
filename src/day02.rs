@@ -37,11 +37,8 @@ lazy_static! {
 }
 impl FromStr for Input {
     type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let m = PATTERN
-            .captures(s)
-            .ok_or(format!("invalid format: \"{}\"", s))?;
+    fn from_str(s: &str) -> Result<Input, Self::Err> {
+        let m = PATTERN.captures(s).ok_or(s.to_owned())?;
         Ok(Input {
             policy: Policy {
                 target: m.name("target").unwrap().as_str().chars().next().unwrap(),
