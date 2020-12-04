@@ -6,10 +6,14 @@ type Passport = HashMap<String, String>;
 
 lazy_static! {
     static ref PASSPORT: Regex = Regex::new(r"([[:alpha:]]+):([^[[:space:]]]+)").unwrap();
-    static ref HAIR_COLOR: Regex = Regex::new(r"^#[0-9a-f]{6}$").unwrap();
-    static ref EYE_COLOR: Regex = Regex::new(r"^amb|blu|brn|gry|grn|hzl|oth$").unwrap();
-    static ref PASSPORT_ID: Regex = Regex::new(r"^[[:digit:]]{9}$").unwrap();
     static ref YEAR: Regex = Regex::new(r"^[[:digit:]]{4}$").unwrap();
+    static ref BYR: Regex = Regex::new(r"^19[2-9][0-9]|200[0-2]$").unwrap();
+    static ref IYR: Regex = Regex::new(r"^201[0-9]|2020$").unwrap();
+    static ref EYR: Regex = Regex::new(r"^202[0-9]|2030$").unwrap();
+    static ref HGT: Regex = Regex::new(r"^1([5-8][0-9]|9[0-3])cm|(59|6[0-9]|7[0-6])in$").unwrap();
+    static ref HCL: Regex = Regex::new(r"^#[0-9a-f]{6}$").unwrap();
+    static ref ECL: Regex = Regex::new(r"^amb|blu|brn|gry|grn|hzl|oth$").unwrap();
+    static ref PID: Regex = Regex::new(r"^[[:digit:]]{9}$").unwrap();
 }
 fn parse_passports(input: &str) -> Vec<Passport> {
     let mut passports = vec![];
@@ -46,51 +50,16 @@ fn has_required_fields(passport: &Passport) -> bool {
 }
 
 fn validate(passport: &Passport) -> Result<(), &str> {
-    passport
-        .get("byr")
-        .filter(|v| YEAR.is_match(v))
-        .and_then(|v| v.parse::<i32>().ok())
-        .filter(|y| (1920..=2002).contains(y))
-        .ok_or("byr")?;
-    passport
-        .get("iyr")
-        .filter(|v| YEAR.is_match(v))
-        .and_then(|v| v.parse::<i32>().ok())
-        .filter(|y| (2010..=2020).contains(y))
-        .ok_or("iyr")?;
-    passport
-        .get("eyr")
-        .filter(|v| YEAR.is_match(v))
-        .and_then(|v| v.parse::<i32>().ok())
-        .filter(|y| (2020..=2030).contains(y))
-        .ok_or("eyr")?;
-    passport
-        .get("hgt")
-        .filter(|v| !v.starts_with("0"))
-        .and_then(|hgt| {
-            let in_cm = hgt
-                .strip_suffix("cm")
-                .and_then(|h| h.parse::<i32>().ok())
-                .filter(|h| (150..=193).contains(h));
-            let in_in = hgt
-                .strip_suffix("in")
-                .and_then(|h| h.parse::<i32>().ok())
-                .filter(|h| (59..=76).contains(h));
-            in_cm.or(in_in)
-        })
-        .ok_or("hgt")?;
-    passport
-        .get("hcl")
-        .filter(|hcl| HAIR_COLOR.is_match(hcl))
-        .ok_or("hcl")?;
-    passport
-        .get("ecl")
-        .filter(|ecl| EYE_COLOR.is_match(ecl))
-        .ok_or("ecl")?;
-    passport
-        .get("pid")
-        .filter(|pid| PASSPORT_ID.is_match(pid))
-        .ok_or("pid")?;
+    let check = |key: &'static str, pattern: &Regex| {
+        passport.get(key).filter(|v| pattern.is_match(v)).ok_or(key)
+    };
+    check("byr", &BYR)?;
+    check("iyr", &IYR)?;
+    check("eyr", &EYR)?;
+    check("hgt", &HGT)?;
+    check("hcl", &HCL)?;
+    check("ecl", &ECL)?;
+    check("pid", &PID)?;
     Ok(())
 }
 
