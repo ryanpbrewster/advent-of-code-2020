@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod test {
-    use itertools::iproduct;
+    use itertools::Itertools;
 
     #[test]
     fn small1() {
@@ -17,7 +17,9 @@ mod test {
             .map(|token| token.parse::<i32>().unwrap())
             .collect();
 
-        let (a, b) = iproduct!(&entries, &entries)
+        let (a, b) = entries
+            .iter()
+            .tuple_combinations()
             .find(|(&a, &b)| a + b == 2020)
             .unwrap();
         assert_eq!(a * b, 514579);
@@ -30,7 +32,9 @@ mod test {
             .split_ascii_whitespace()
             .map(|token| token.parse::<i32>().unwrap())
             .collect();
-        let (a, b) = iproduct!(&entries, &entries)
+        let (a, b) = entries
+            .iter()
+            .tuple_combinations()
             .find(|(&a, &b)| a + b == 2020)
             .unwrap();
         assert_eq!(a * b, 996075);
@@ -43,7 +47,9 @@ mod test {
             .split_ascii_whitespace()
             .map(|token| token.parse::<i32>().unwrap())
             .collect();
-        let (a, b, c) = iproduct!(&entries, &entries, &entries)
+        let (a, b, c) = entries
+            .iter()
+            .tuple_combinations()
             .find(|(&a, &b, &c)| a + b + c == 2020)
             .unwrap();
         assert_eq!(a * b * c, 51810360);
