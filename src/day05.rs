@@ -1,14 +1,12 @@
 fn get_seat_number(pass: &str) -> Option<usize> {
     let mut acc = 0;
     for ch in pass.chars() {
-        acc = 2 * acc
-            + match ch {
-                'F' => 0,
-                'B' => 1,
-                'L' => 0,
-                'R' => 1,
-                _ => return None,
-            };
+        let v = match ch {
+            'F' | 'L' => 0,
+            'B' | 'R' => 1,
+            _ => return None,
+        };
+        acc = 2 * acc + v;
     }
     Some(acc)
 }
