@@ -1,7 +1,8 @@
 use std::collections::HashSet;
 
-fn count_any(pass: &str) -> usize {
-    pass.trim()
+fn count_any(input: &str) -> usize {
+    input
+        .trim()
         .split("\n\n")
         .map(|group| {
             let any = group
@@ -13,8 +14,9 @@ fn count_any(pass: &str) -> usize {
         .sum()
 }
 
-fn count_all(pass: &str) -> usize {
-    pass.trim()
+fn count_all(input: &str) -> usize {
+    input
+        .trim()
         .split("\n\n")
         .map(|group| {
             let mut individuals = group
