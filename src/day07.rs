@@ -45,26 +45,23 @@ impl FromStr for Relation {
 }
 
 fn find_containers(relations: &[Relation], target: Bag) -> HashSet<Bag> {
-    let mut direct: HashMap<Bag, Vec<Bag>> = HashMap::new();
+    let mut parents: HashMap<Bag, Vec<Bag>> = HashMap::new();
     for r in relations {
-        for (_, c) in &r.contents {
-            direct.entry(c.clone()).or_default().push(r.bag.clone());
+        for (_, child) in &r.contents {
+            parents
+                .entry(child.clone())
+                .or_default()
+                .push(r.bag.clone());
         }
     }
     let mut containers = HashSet::new();
     let mut frontier: Vec<Bag> = vec![target];
-    while !frontier.is_empty() {
-        let mut next: Vec<Bag> = Vec::new();
-        for bag in &frontier {
-            if let Some(parents) = direct.get(bag) {
-                next.extend(parents.iter().cloned());
+    while let Some(bag) = frontier.pop() {
+        if let Some(ps) = parents.get(&bag) {
+            for p in ps {
+                containers.insert(p.clone());
+                frontier.push(p.clone());
             }
-        }
-
-        frontier.clear();
-        for bag in next {
-            containers.insert(bag.clone());
-            frontier.push(bag);
         }
     }
     containers
