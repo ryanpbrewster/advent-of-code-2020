@@ -1,6 +1,9 @@
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::str::FromStr;
+use std::{
+    collections::{HashMap, HashSet},
+    str::FromStr,
+};
 
 type Bag = String;
 #[derive(Debug, Eq, PartialEq)]
@@ -41,24 +44,63 @@ impl FromStr for Relation {
     }
 }
 
+fn find_containers(relations: &[Relation], target: Bag) -> HashSet<Bag> {
+    let mut direct: HashMap<Bag, Vec<Bag>> = HashMap::new();
+    for r in relations {
+        for (_, c) in &r.contents {
+            direct.entry(c.clone()).or_default().push(r.bag.clone());
+        }
+    }
+    let mut containers = HashSet::new();
+    let mut frontier: Vec<Bag> = vec![target];
+    while !frontier.is_empty() {
+        let mut next: Vec<Bag> = Vec::new();
+        for bag in &frontier {
+            if let Some(parents) = direct.get(bag) {
+                next.extend(parents.iter().cloned());
+            }
+        }
+
+        frontier.clear();
+        for bag in next {
+            containers.insert(bag.clone());
+            frontier.push(bag);
+        }
+    }
+    containers
+}
+
+fn count_contents(relations: &[Relation], target: Bag) -> usize {
+    let contents = relations
+        .iter()
+        .find(|r| r.bag == target)
+        .map(|r| r.contents.clone())
+        .unwrap_or_default();
+    contents
+        .into_iter()
+        .map(|(k, b)| k * (1 + count_contents(relations, b)))
+        .sum::<usize>()
+}
+
 #[cfg(test)]
 mod test {
-    use super::Relation;
+    use super::{count_contents, find_containers, Relation};
+
+    const SMALL: &str = r"
+        light red bags contain 1 bright white bag, 2 muted yellow bags.
+        dark orange bags contain 3 bright white bags, 4 muted yellow bags.
+        bright white bags contain 1 shiny gold bag.
+        muted yellow bags contain 2 shiny gold bags, 9 faded blue bags.
+        shiny gold bags contain 1 dark olive bag, 2 vibrant plum bags.
+        dark olive bags contain 3 faded blue bags, 4 dotted black bags.
+        vibrant plum bags contain 5 faded blue bags, 6 dotted black bags.
+        faded blue bags contain no other bags.
+        dotted black bags contain no other bags.
+    ";
 
     #[test]
     fn parser() {
-        let raw = r"
-            light red bags contain 1 bright white bag, 2 muted yellow bags.
-            dark orange bags contain 3 bright white bags, 4 muted yellow bags.
-            bright white bags contain 1 shiny gold bag.
-            muted yellow bags contain 2 shiny gold bags, 9 faded blue bags.
-            shiny gold bags contain 1 dark olive bag, 2 vibrant plum bags.
-            dark olive bags contain 3 faded blue bags, 4 dotted black bags.
-            vibrant plum bags contain 5 faded blue bags, 6 dotted black bags.
-            faded blue bags contain no other bags.
-            dotted black bags contain no other bags.
-        ";
-        let lines: Vec<&str> = raw.trim().lines().collect();
+        let lines: Vec<&str> = SMALL.trim().lines().collect();
         assert_eq!(
             lines[0].parse::<Relation>().unwrap(),
             Relation {
@@ -83,5 +125,53 @@ mod test {
                 contents: vec![]
             }
         );
+    }
+
+    #[test]
+    fn small1() {
+        let relations: Vec<Relation> = SMALL
+            .trim()
+            .lines()
+            .map(|l| l.parse::<Relation>().unwrap())
+            .collect();
+        assert_eq!(
+            find_containers(&relations, "shiny gold".to_owned()).len(),
+            4
+        );
+    }
+
+    #[test]
+    fn normal1() {
+        let raw = std::fs::read_to_string("data/day07.input").unwrap();
+        let relations: Vec<Relation> = raw
+            .trim()
+            .lines()
+            .map(|l| l.parse::<Relation>().unwrap())
+            .collect();
+        assert_eq!(
+            find_containers(&relations, "shiny gold".to_owned()).len(),
+            197
+        );
+    }
+
+    #[test]
+    fn small2() {
+        let relations: Vec<Relation> = SMALL
+            .trim()
+            .lines()
+            .map(|l| l.parse::<Relation>().unwrap())
+            .collect();
+        assert_eq!(count_contents(&relations, "shiny gold".to_owned()), 32);
+    }
+
+    #[test]
+    fn normal2() {
+        let raw = std::fs::read_to_string("data/day07.input").unwrap();
+        let relations: Vec<Relation> = raw
+            .trim()
+            .lines()
+            .map(|l| l.parse::<Relation>().unwrap())
+            .collect();
+        assert_eq!(count_contents(&relations, "shiny gold".to_owned()), 85324);
     }
 }
