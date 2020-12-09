@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_while},
@@ -10,7 +8,7 @@ use nom::{
     IResult,
 };
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 struct Instruction {
     opcode: OpCode,
     arg: i32,
@@ -71,11 +69,12 @@ fn arg_parser(input: &str) -> IResult<&str, i32> {
     )(input)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Interpreter {
     program: Vec<Instruction>,
     acc: i32,
     pos: i32,
+    visited: Vec<i32>,
 }
 impl Interpreter {
     fn new(program: Vec<Instruction>) -> Interpreter {
@@ -83,10 +82,23 @@ impl Interpreter {
             program,
             acc: 0,
             pos: 0,
+            visited: Vec::new(),
         }
     }
-    fn step(&mut self) {
-        let instruction = &self.program[self.pos as usize];
+    fn step(&mut self) -> Option<Status> {
+        if self.visited.contains(&self.pos) {
+            return Some(Status::Loop);
+        }
+        self.visited.push(self.pos);
+
+        let pos: usize = self.pos as usize;
+        if pos == self.program.len() {
+            return Some(Status::Complete);
+        }
+        if pos > self.program.len() {
+            return Some(Status::Error);
+        }
+        let instruction = &self.program[pos];
         match instruction.opcode {
             OpCode::Jump => {
                 self.pos += instruction.arg;
@@ -99,22 +111,51 @@ impl Interpreter {
                 self.pos += 1;
             }
         }
+        None
     }
+    fn drive(&mut self) -> Status {
+        loop {
+            if let Some(status) = self.step() {
+                return status;
+            }
+        }
+    }
+}
+#[derive(Debug, Eq, PartialEq)]
+enum Status {
+    Complete,
+    Error,
+    Loop,
 }
 
 fn final_acc(mut interpreter: Interpreter) -> Option<i32> {
-    let mut visited = HashSet::new();
-    loop {
-        if !visited.insert(interpreter.pos) {
-            return Some(interpreter.acc);
-        }
-        interpreter.step();
+    match interpreter.drive() {
+        Status::Complete | Status::Error => None,
+        Status::Loop => Some(interpreter.acc),
     }
+}
+
+fn final_fixed_acc(interpreter: Interpreter) -> Option<i32> {
+    for i in 0..interpreter.program.len() {
+        let mut fixed = interpreter.clone();
+        match interpreter.program[i].opcode {
+            OpCode::Acc => continue,
+            OpCode::Nop => fixed.program[i].opcode = OpCode::Jump,
+            OpCode::Jump => fixed.program[i].opcode = OpCode::Nop,
+        };
+        if let Status::Complete = fixed.drive() {
+            return Some(fixed.acc);
+        }
+    }
+    None
 }
 
 #[cfg(test)]
 mod test {
-    use super::{final_acc, instruction_parser, parse_instructions, Instruction, Interpreter};
+    use super::{
+        final_acc, final_fixed_acc, instruction_parser, parse_instructions, Instruction,
+        Interpreter,
+    };
     #[test]
     fn parser_one() {
         assert_eq!(instruction_parser("nop +0").unwrap().1, Instruction::nop(0));
@@ -155,5 +196,17 @@ mod test {
         let raw = std::fs::read_to_string("data/day08.input").unwrap();
         let interpreter = Interpreter::new(parse_instructions(&raw).unwrap());
         assert_eq!(final_acc(interpreter).unwrap(), 1087);
+    }
+
+    #[test]
+    fn small2() {
+        let interpreter = Interpreter::new(parse_instructions(SMALL).unwrap());
+        assert_eq!(final_fixed_acc(interpreter).unwrap(), 8);
+    }
+    #[test]
+    fn normal2() {
+        let raw = std::fs::read_to_string("data/day08.input").unwrap();
+        let interpreter = Interpreter::new(parse_instructions(&raw).unwrap());
+        assert_eq!(final_fixed_acc(interpreter).unwrap(), 780);
     }
 }
