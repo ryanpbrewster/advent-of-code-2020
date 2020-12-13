@@ -27,12 +27,36 @@ fn step(grid: &Grid<Cell>) -> Grid<Cell> {
     Grid::from_fn(grid.width, grid.height, |pos| {
         let occupied = neighbors(pos)
             .into_iter()
-            .filter(|&p| grid[p] == Cell::Occupied)
+            .filter(|&p| grid.get(p) == Some(&Cell::Occupied))
             .count();
-        let cur = grid[pos];
+        let cur = *grid.get(pos).unwrap();
         if cur == Cell::Vacant && occupied == 0 {
             Cell::Occupied
         } else if cur == Cell::Occupied && occupied >= 4 {
+            Cell::Vacant
+        } else {
+            cur
+        }
+    })
+}
+
+fn step2(grid: &Grid<Cell>) -> Grid<Cell> {
+    Grid::from_fn(grid.width, grid.height, |pos| {
+        let occupied = rays(pos)
+            .into_iter()
+            .map(|r| {
+                let visible = r.map(|p| grid.get(p)).find(|&c| c != Some(&Cell::Floor));
+                if visible == Some(Some(&Cell::Occupied)) {
+                    1
+                } else {
+                    0
+                }
+            })
+            .sum::<usize>();
+        let cur = *grid.get(pos).unwrap();
+        if cur == Cell::Vacant && occupied == 0 {
+            Cell::Occupied
+        } else if cur == Cell::Occupied && occupied >= 5 {
             Cell::Vacant
         } else {
             cur
@@ -53,6 +77,20 @@ fn neighbors((i, j): Pos) -> Vec<Pos> {
     ]
 }
 
+fn rays((i, j): Pos) -> Vec<impl Iterator<Item = Pos>> {
+    let ray = |di, dj| (1..).map(move |k| (i + k * di, j + k * dj));
+    vec![
+        ray(-1, -1),
+        ray(-1, 0),
+        ray(-1, 1),
+        ray(0, -1),
+        ray(0, 1),
+        ray(1, -1),
+        ray(1, 0),
+        ray(1, 1),
+    ]
+}
+
 fn stabilize(mut grid: Grid<Cell>) -> Grid<Cell> {
     loop {
         let next = step(&grid);
@@ -62,11 +100,22 @@ fn stabilize(mut grid: Grid<Cell>) -> Grid<Cell> {
         grid = next;
     }
 }
+
+fn stabilize2(mut grid: Grid<Cell>) -> Grid<Cell> {
+    loop {
+        let next = step2(&grid);
+        if grid == next {
+            return grid;
+        }
+        grid = next;
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::grid::Grid;
 
-    use super::{stabilize, Cell};
+    use super::{stabilize, stabilize2, Cell};
 
     const SMALL: &str = r"
         L.LL.LL.LL
@@ -125,5 +174,18 @@ mod test {
             .filter(|&c| c == Cell::Occupied)
             .count();
         assert_eq!(occupied, 2238);
+    }
+
+    #[test]
+    fn normal2() {
+        let raw = std::fs::read_to_string("data/day11.input").unwrap();
+        let grid = parse(&raw);
+        let stable = stabilize2(grid);
+        let occupied = stable
+            .items
+            .into_iter()
+            .filter(|&c| c == Cell::Occupied)
+            .count();
+        assert_eq!(occupied, 2013);
     }
 }

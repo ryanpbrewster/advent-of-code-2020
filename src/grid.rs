@@ -1,31 +1,19 @@
-use std::{fmt, ops::Index};
+use std::fmt;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub struct Grid<T: Eq + Default> {
+pub struct Grid<T> {
     pub width: usize,
     pub height: usize,
     pub items: Vec<T>,
-    default: T,
 }
 
 pub type Pos = (i32, i32);
 
-impl<T: Eq + Default> Index<Pos> for Grid<T> {
-    type Output = T;
-    fn index(&self, (i, j): Pos) -> &T {
-        if 0 <= i && i < self.height as i32 && 0 <= j && j < self.width as i32 {
-            &self.items[i as usize * self.width + j as usize]
-        } else {
-            &self.default
-        }
-    }
-}
-
-impl<T: fmt::Display + Eq + Default> fmt::Display for Grid<T> {
+impl<T: fmt::Display> fmt::Display for Grid<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for i in 0..self.height {
             for j in 0..self.width {
-                write!(f, "{}", self[(i as i32, j as i32)])?;
+                write!(f, "{}", self.get((i as i32, j as i32)).unwrap())?;
             }
             write!(f, "\n")?;
         }
@@ -33,14 +21,13 @@ impl<T: fmt::Display + Eq + Default> fmt::Display for Grid<T> {
     }
 }
 
-impl<T: Eq + Default> Grid<T> {
+impl<T> Grid<T> {
     pub fn new<'a>(width: usize, height: usize, items: Vec<T>) -> Grid<T> {
         assert_eq!(width * height, items.len());
         Grid {
             width,
             height,
             items,
-            default: T::default(),
         }
     }
     pub fn from_fn<F>(width: usize, height: usize, f: F) -> Grid<T>
@@ -57,7 +44,14 @@ impl<T: Eq + Default> Grid<T> {
             width,
             height,
             items,
-            default: T::default(),
+        }
+    }
+
+    pub fn get(&self, (i, j): Pos) -> Option<&T> {
+        if 0 <= i && i < self.height as i32 && 0 <= j && j < self.width as i32 {
+            Some(&self.items[i as usize * self.width + j as usize])
+        } else {
+            None
         }
     }
 }
