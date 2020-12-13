@@ -1,3 +1,4 @@
+#[derive(Eq, PartialEq)]
 enum Move {
     North,
     South,
@@ -41,9 +42,49 @@ impl Ship {
     }
 }
 
+struct Ship2 {
+    x: i32,
+    y: i32,
+    dx: i32,
+    dy: i32,
+}
+impl Ship2 {
+    fn new() -> Ship2 {
+        Ship2 {
+            x: 0,
+            y: 0,
+            dx: 10,
+            dy: 1,
+        }
+    }
+    fn step(&mut self, m: Move, n: i32) {
+        match m {
+            Move::North => self.dy += n,
+            Move::South => self.dy -= n,
+            Move::East => self.dx += n,
+            Move::West => self.dx -= n,
+            Move::Left | Move::Right => {
+                let theta = if m == Move::Left { n } else { 360 - n };
+                let (dx, dy) = match theta {
+                    90 => (-self.dy, self.dx),
+                    180 => (-self.dx, -self.dy),
+                    270 => (self.dy, -self.dx),
+                    _ => panic!("invalid angle: {}", theta),
+                };
+                self.dx = dx;
+                self.dy = dy;
+            }
+            Move::Forward => {
+                self.x += n * self.dx;
+                self.y += n * self.dy;
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use super::{Move, Ship};
+    use super::{Move, Ship, Ship2};
 
     const SMALL: &str = r" F10 N3 F7 R90 F11 ";
     fn parse(input: &str) -> Vec<(Move, i32)> {
@@ -85,5 +126,26 @@ mod test {
             ship.step(m, n);
         }
         assert_eq!(ship.x.abs() + ship.y.abs(), 439);
+    }
+
+    #[test]
+    fn small2() {
+        let input = parse(SMALL);
+        let mut ship = Ship2::new();
+        for (m, n) in input {
+            ship.step(m, n);
+        }
+        assert_eq!(ship.x.abs() + ship.y.abs(), 286);
+    }
+
+    #[test]
+    fn normal2() {
+        let raw = std::fs::read_to_string("data/day12.input").unwrap();
+        let input = parse(&raw);
+        let mut ship = Ship2::new();
+        for (m, n) in input {
+            ship.step(m, n);
+        }
+        assert_eq!(ship.x.abs() + ship.y.abs(), 12385);
     }
 }
