@@ -3,15 +3,13 @@ use std::collections::HashMap;
 fn solve(input: &str, n: usize) -> usize {
     let xs: Vec<usize> = input.split(',').map(|s| s.parse().unwrap()).collect();
     let mut d = HashMap::new();
-    for (idx, &x) in xs[..xs.len() - 1].iter().enumerate() {
+    for (idx, &x) in xs.iter().enumerate() {
         d.insert(x, idx + 1);
     }
     let mut cur = xs[xs.len() - 1];
     for i in xs.len()..n {
-        let prev = *d.get(&cur).unwrap_or(&i);
-        let v = i - prev;
-        d.insert(cur, i);
-        cur = v;
+        let prev = d.insert(cur, i);
+        cur = i - prev.unwrap_or(i);
     }
     cur
 }
