@@ -1,4 +1,8 @@
-use std::{collections::HashMap, ops::RangeInclusive, str::FromStr};
+use std::{
+    collections::{HashMap, HashSet},
+    ops::RangeInclusive,
+    str::FromStr,
+};
 
 use nom::{
     bytes::complete::tag,
@@ -10,7 +14,7 @@ use nom::{
     IResult,
 };
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 struct FieldSpec {
     name: String,
     ranges: Vec<RangeInclusive<usize>>,
@@ -27,9 +31,9 @@ impl FromStr for Input {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (_, input) = all_consuming(delimited(multispace0, input_parser, multispace0))(s)
-            .map_err(|_| s.to_owned())?;
-        Ok(input)
+        all_consuming(input_parser)(s)
+            .map(|(_, parsed)| parsed)
+            .map_err(|_| s.to_owned())
     }
 }
 fn input_parser(input: &str) -> IResult<&str, Input> {
@@ -89,9 +93,62 @@ fn solve1(input: &Input) -> usize {
         .sum()
 }
 
+type LabeledTicket = Vec<String>;
+fn solve2(input: &Input) -> LabeledTicket {
+    let is_valid = |v| {
+        input
+            .specs
+            .iter()
+            .any(|(_, spec)| spec.ranges.iter().any(|range| range.contains(v)))
+    };
+    let valid_tickets: Vec<Ticket> = input
+        .nearby_tickets
+        .iter()
+        .filter(|t| t.iter().all(|v| is_valid(v)))
+        .cloned()
+        .collect();
+    let ticket_size = input.specs.len();
+    struct Possibility {
+        field: FieldSpec,
+        candidates: HashSet<usize>,
+    }
+    let mut possibilities: Vec<Possibility> = input
+        .specs
+        .values()
+        .map(|field| Possibility {
+            field: field.clone(),
+            candidates: (0..ticket_size).collect(),
+        })
+        .collect();
+    for ticket in valid_tickets {
+        for (i, v) in ticket.iter().enumerate() {
+            for Possibility { field, candidates } in possibilities.iter_mut() {
+                if candidates.contains(&i) && !field.ranges.iter().any(|r| r.contains(v)) {
+                    candidates.remove(&i);
+                }
+            }
+        }
+    }
+    let mut mapping: HashMap<usize, String> = HashMap::new();
+    while mapping.len() < ticket_size {
+        // Find a name with an obvious mapping.
+        let trivial: &Possibility = possibilities
+            .iter()
+            .find(|p| p.candidates.len() == 1)
+            .unwrap();
+        let idx: usize = *trivial.candidates.iter().next().unwrap();
+        mapping.insert(idx, trivial.field.name.clone());
+        // No other field is allowed to use this index now.
+        for p in possibilities.iter_mut() {
+            p.candidates.remove(&idx);
+        }
+    }
+    (0..ticket_size).map(|idx| mapping[&idx].clone()).collect()
+}
+
 #[cfg(test)]
 mod test {
-    use super::{field_parser, range_parser, solve1, FieldSpec, Input};
+    use super::{field_parser, range_parser, solve1, solve2, FieldSpec, Input};
 
     const SMALL: &str = r"
         class: 1-3 or 5-7
@@ -124,5 +181,58 @@ mod test {
     fn small1() {
         let input = SMALL.trim().parse::<Input>().unwrap();
         assert_eq!(solve1(&input), 71);
+    }
+
+    #[test]
+    fn normal1() {
+        let raw = std::fs::read_to_string("data/day16.input").unwrap();
+        let input = raw.trim().parse::<Input>().unwrap();
+        assert_eq!(solve1(&input), 18142);
+    }
+
+    #[test]
+    fn small2() {
+        let input = SMALL.trim().parse::<Input>().unwrap();
+        assert_eq!(solve2(&input), vec!["row", "class", "seat"]);
+    }
+
+    #[test]
+    fn normal2() {
+        let raw = std::fs::read_to_string("data/day16.input").unwrap();
+        let input = raw.trim().parse::<Input>().unwrap();
+        let labels = solve2(&input);
+        assert_eq!(
+            labels,
+            vec![
+                "class",
+                "route",
+                "departure date",
+                "duration",
+                "arrival platform",
+                "arrival track",
+                "train",
+                "zone",
+                "row",
+                "departure location",
+                "departure station",
+                "arrival location",
+                "arrival station",
+                "price",
+                "wagon",
+                "seat",
+                "type",
+                "departure track",
+                "departure platform",
+                "departure time"
+            ]
+        );
+        let computed = input
+            .my_ticket
+            .into_iter()
+            .zip(labels.into_iter())
+            .filter(|(_, name)| name.starts_with("departure"))
+            .map(|(v, _)| v)
+            .product::<usize>();
+        assert_eq!(computed, 1069784384303);
     }
 }
