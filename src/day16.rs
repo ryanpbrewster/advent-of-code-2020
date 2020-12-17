@@ -19,10 +19,15 @@ struct FieldSpec {
     name: String,
     ranges: Vec<RangeInclusive<usize>>,
 }
+impl FieldSpec {
+    fn allows(&self, v: usize) -> bool {
+        self.ranges.iter().any(|r| r.contains(&v))
+    }
+}
 
 type Ticket = Vec<usize>;
 struct Input {
-    specs: HashMap<String, FieldSpec>,
+    specs: Vec<FieldSpec>,
     my_ticket: Ticket,
     nearby_tickets: Vec<Ticket>,
 }
@@ -37,16 +42,13 @@ impl FromStr for Input {
     }
 }
 fn input_parser(input: &str) -> IResult<&str, Input> {
-    let (input, fields) = separated_list1(multispace1, field_parser)(input)?;
+    let (input, specs) = separated_list1(multispace1, field_parser)(input)?;
     let (input, _) = delimited(multispace0, tag("your ticket:"), multispace0)(input)?;
     let (input, my_ticket) = ticket_parser(input)?;
     let (input, _) = delimited(multispace0, tag("nearby tickets:"), multispace0)(input)?;
     let (input, nearby_tickets) = separated_list1(multispace1, ticket_parser)(input)?;
     let parsed = Input {
-        specs: fields
-            .into_iter()
-            .map(|field| (field.name.clone(), field))
-            .collect(),
+        specs,
         my_ticket,
         nearby_tickets,
     };
@@ -79,32 +81,21 @@ fn usize_parser(input: &str) -> IResult<&str, usize> {
 }
 
 fn solve1(input: &Input) -> usize {
-    let is_valid = |v| {
-        input
-            .specs
-            .iter()
-            .any(|(_, spec)| spec.ranges.iter().any(|range| range.contains(v)))
-    };
+    let is_valid = |v| input.specs.iter().any(|spec| spec.allows(v));
     input
         .nearby_tickets
         .iter()
-        .flat_map(|ticket| ticket.iter())
-        .filter(|v| !is_valid(v))
+        .filter_map(|ticket| ticket.iter().find(|&&v| !is_valid(v)))
         .sum()
 }
 
 type LabeledTicket = Vec<String>;
 fn solve2(input: &Input) -> LabeledTicket {
-    let is_valid = |v| {
-        input
-            .specs
-            .iter()
-            .any(|(_, spec)| spec.ranges.iter().any(|range| range.contains(v)))
-    };
+    let is_valid = |v| input.specs.iter().any(|spec| spec.allows(v));
     let valid_tickets: Vec<Ticket> = input
         .nearby_tickets
         .iter()
-        .filter(|t| t.iter().all(|v| is_valid(v)))
+        .filter(|t| t.iter().all(|&v| is_valid(v)))
         .cloned()
         .collect();
     let ticket_size = input.specs.len();
@@ -114,16 +105,16 @@ fn solve2(input: &Input) -> LabeledTicket {
     }
     let mut possibilities: Vec<Possibility> = input
         .specs
-        .values()
+        .iter()
         .map(|field| Possibility {
             field: field.clone(),
             candidates: (0..ticket_size).collect(),
         })
         .collect();
     for ticket in valid_tickets {
-        for (i, v) in ticket.iter().enumerate() {
+        for (i, &v) in ticket.iter().enumerate() {
             for Possibility { field, candidates } in possibilities.iter_mut() {
-                if candidates.contains(&i) && !field.ranges.iter().any(|r| r.contains(v)) {
+                if !field.allows(v) {
                     candidates.remove(&i);
                 }
             }
@@ -201,31 +192,6 @@ mod test {
         let raw = std::fs::read_to_string("data/day16.input").unwrap();
         let input = raw.trim().parse::<Input>().unwrap();
         let labels = solve2(&input);
-        assert_eq!(
-            labels,
-            vec![
-                "class",
-                "route",
-                "departure date",
-                "duration",
-                "arrival platform",
-                "arrival track",
-                "train",
-                "zone",
-                "row",
-                "departure location",
-                "departure station",
-                "arrival location",
-                "arrival station",
-                "price",
-                "wagon",
-                "seat",
-                "type",
-                "departure track",
-                "departure platform",
-                "departure time"
-            ]
-        );
         let computed = input
             .my_ticket
             .into_iter()
