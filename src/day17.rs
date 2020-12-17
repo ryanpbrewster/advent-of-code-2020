@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 
 trait Cell: Eq + PartialEq + Sized + Hash {
@@ -56,21 +56,17 @@ impl<C: Cell> Universe<C> {
         self.active.len()
     }
     fn step(&mut self) {
-        let all: HashSet<C> = self
-            .active
-            .iter()
-            .flat_map(|p| p.neighbors().into_iter())
-            .collect();
+        let mut adj: HashMap<C, usize> = HashMap::new();
+        for p in &self.active {
+            for n in p.neighbors() {
+                if n != *p {
+                    *adj.entry(n).or_default() += 1;
+                }
+            }
+        }
         let mut next = HashSet::new();
-        for p in all {
-            let adj = p
-                .neighbors()
-                .into_iter()
-                .filter(|n| *n != p && self.active.contains(n))
-                .count();
-            if self.active.contains(&p) && (adj == 2 || adj == 3) {
-                next.insert(p);
-            } else if !self.active.contains(&p) && adj == 3 {
+        for (p, c) in adj {
+            if c == 3 || (c == 2 && self.active.contains(&p)) {
                 next.insert(p);
             }
         }
