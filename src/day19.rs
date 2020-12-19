@@ -23,48 +23,31 @@ struct Grammar {
 }
 impl Grammar {
     fn accepts<'a>(&self, input: &'a str) -> bool {
-        struct State<'a> {
-            rules: Vec<usize>,
-            input: &'a str,
+        self.check(vec![0], input)
+    }
+    fn check<'a>(&self, mut rules: Vec<usize>, input: &str) -> bool {
+        if rules.is_empty() && input.is_empty() {
+            return true;
         }
-        let mut stack = Vec::new();
-        stack.push(State {
-            rules: vec![0],
-            input,
-        });
-        while let Some(State { mut rules, input }) = stack.pop() {
-            if rules.is_empty() && input.is_empty() {
-                return true;
+        let first_rule = match rules.pop() {
+            Some(id) => &self.rules[&id],
+            None => return false,
+        };
+        match first_rule {
+            Rule::Literal(c) => input.starts_with(*c) && self.check(rules, &input[1..]),
+            Rule::Subrule(sub) => {
+                rules.extend(sub.iter().rev());
+                self.check(rules, input)
             }
-            let first_rule = match rules.pop() {
-                Some(id) => &self.rules[&id],
-                None => continue,
-            };
-            match first_rule {
-                Rule::Literal(c) => {
-                    if input.starts_with(*c) {
-                        stack.push(State {
-                            rules,
-                            input: &input[1..],
-                        });
-                    }
-                }
-                Rule::Subrule(sub) => {
-                    rules.extend(sub.iter().rev());
-                    stack.push(State { rules, input });
-                }
-                Rule::Alt(a, b) => {
-                    let mut ra = rules.clone();
-                    ra.extend(a.iter().rev());
-                    stack.push(State { rules: ra, input });
+            Rule::Alt(a, b) => {
+                let mut ra = rules.clone();
+                ra.extend(a.iter().rev());
 
-                    let mut rb = rules;
-                    rb.extend(b.iter().rev());
-                    stack.push(State { rules: rb, input });
-                }
+                let mut rb = rules;
+                rb.extend(b.iter().rev());
+                self.check(ra, input) || self.check(rb, input)
             }
         }
-        false
     }
 }
 
@@ -97,7 +80,7 @@ fn usize_parser(input: &str) -> IResult<&str, usize> {
     map_res(take_while1(|c: char| c.is_digit(10)), |s: &str| s.parse())(input)
 }
 
-fn solve1(input: &str) -> usize {
+fn parse_grammar(input: &str) -> (Grammar, Vec<&str>) {
     let mut lines = input.trim().lines().map(|l| l.trim());
     let mut rules = HashMap::new();
     while let Some(l) = lines.next() {
@@ -107,28 +90,22 @@ fn solve1(input: &str) -> usize {
         let (id, rule) = rule_parser(l).unwrap().1;
         rules.insert(id, rule);
     }
-
     let grammar = Grammar { rules };
-
-    lines.filter(|l| grammar.accepts(l)).count()
+    let msgs = lines.collect();
+    (grammar, msgs)
 }
-
+fn solve1(input: &str) -> usize {
+    let (grammar, msgs) = parse_grammar(input);
+    msgs.into_iter().filter(|l| grammar.accepts(l)).count()
+}
 fn solve2(input: &str) -> usize {
-    let mut lines = input.trim().lines().map(|l| l.trim());
-    let mut rules = HashMap::new();
-    while let Some(l) = lines.next() {
-        if l.is_empty() {
-            break;
-        }
-        let (id, rule) = rule_parser(l).unwrap().1;
-        rules.insert(id, rule);
-    }
+    let (mut grammar, msgs) = parse_grammar(input);
+    grammar.rules.insert(8, Rule::Alt(vec![42], vec![42, 8]));
+    grammar
+        .rules
+        .insert(11, Rule::Alt(vec![42, 31], vec![42, 11, 31]));
 
-    rules.insert(8, Rule::Alt(vec![42], vec![42, 8]));
-    rules.insert(11, Rule::Alt(vec![42, 31], vec![42, 11, 31]));
-    let grammar = Grammar { rules };
-
-    lines.filter(|l| grammar.accepts(l)).count()
+    msgs.into_iter().filter(|l| grammar.accepts(l)).count()
 }
 
 #[cfg(test)]
