@@ -1,11 +1,9 @@
-use std::str::FromStr;
-
 use nom::{
     branch::alt,
     bytes::complete::tag,
     bytes::complete::take_while1,
     character::complete::{multispace0, one_of},
-    combinator::{all_consuming, map, map_res},
+    combinator::{map, map_res},
     multi::fold_many0,
     sequence::{delimited, pair, preceded},
     IResult,
@@ -26,23 +24,10 @@ impl Expr {
     }
 }
 
-impl FromStr for Expr {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        all_consuming(expr_parser)(s)
-            .map(|(_, parsed)| parsed)
-            .map_err(|_| s.to_owned())
-    }
-}
-fn expr_parser(input: &str) -> IResult<&str, Expr> {
-    alt((binary_op_parser, literal_parser))(input)
-}
-
-fn binary_op_parser(input: &str) -> IResult<&str, Expr> {
-    let (input, t0) = term_parser(input)?;
+fn lr_parser(input: &str) -> IResult<&str, Expr> {
+    let (input, t0) = lr_term_parser(input)?;
     fold_many0(
-        pair(op_parser, term_parser),
+        pair(one_of("+*"), lr_term_parser),
         t0,
         |acc, (op, term)| match op {
             '+' => Expr::add(acc, term),
@@ -51,15 +36,40 @@ fn binary_op_parser(input: &str) -> IResult<&str, Expr> {
         },
     )(input)
 }
-fn op_parser(input: &str) -> IResult<&str, char> {
-    preceded(multispace0, one_of("+*"))(input)
+fn lr_term_parser(input: &str) -> IResult<&str, Expr> {
+    delimited(
+        multispace0,
+        alt((lr_paren_parser, literal_parser)),
+        multispace0,
+    )(input)
 }
-fn term_parser(input: &str) -> IResult<&str, Expr> {
-    preceded(multispace0, alt((paren_parser, literal_parser)))(input)
+fn lr_paren_parser(input: &str) -> IResult<&str, Expr> {
+    delimited(tag("("), lr_parser, tag(")"))(input)
 }
-fn paren_parser(input: &str) -> IResult<&str, Expr> {
-    delimited(tag("("), expr_parser, tag(")"))(input)
+
+fn mul_parser(input: &str) -> IResult<&str, Expr> {
+    let (input, t0) = add_parser(input)?;
+    fold_many0(preceded(tag("*"), add_parser), t0, |acc, term| {
+        Expr::mul(acc, term)
+    })(input)
 }
+fn add_parser(input: &str) -> IResult<&str, Expr> {
+    let (input, t0) = mul_term_parser(input)?;
+    fold_many0(preceded(tag("+"), mul_term_parser), t0, |acc, term| {
+        Expr::add(acc, term)
+    })(input)
+}
+fn mul_term_parser(input: &str) -> IResult<&str, Expr> {
+    delimited(
+        multispace0,
+        alt((mul_paren_parser, literal_parser)),
+        multispace0,
+    )(input)
+}
+fn mul_paren_parser(input: &str) -> IResult<&str, Expr> {
+    delimited(tag("("), mul_parser, tag(")"))(input)
+}
+
 fn literal_parser(input: &str) -> IResult<&str, Expr> {
     map(int_parser, |n| Expr::Literal(n))(input)
 }
@@ -80,7 +90,18 @@ fn solve1(input: &str) -> i64 {
         .trim()
         .lines()
         .map(|line| {
-            let expr = line.trim().parse().unwrap();
+            let expr = lr_parser(line.trim()).unwrap().1;
+            evaluate(expr)
+        })
+        .sum()
+}
+
+fn solve2(input: &str) -> i64 {
+    input
+        .trim()
+        .lines()
+        .map(|line| {
+            let expr = mul_parser(line.trim()).unwrap().1;
             evaluate(expr)
         })
         .sum()
@@ -88,27 +109,27 @@ fn solve1(input: &str) -> i64 {
 
 #[cfg(test)]
 mod test {
-    use super::{solve1, Expr};
+    use super::{lr_parser, solve1, solve2, Expr};
     #[test]
     fn parser() {
-        assert_eq!("3".parse::<Expr>().unwrap(), Expr::Literal(3));
+        assert_eq!(lr_parser("3").unwrap().1, Expr::Literal(3));
         assert_eq!(
-            "3 + 4".parse::<Expr>().unwrap(),
+            lr_parser("3 + 4").unwrap().1,
             Expr::add(Expr::Literal(3), Expr::Literal(4))
         );
         assert_eq!(
-            "3 * 4".parse::<Expr>().unwrap(),
+            lr_parser("3 * 4").unwrap().1,
             Expr::mul(Expr::Literal(3), Expr::Literal(4))
         );
         assert_eq!(
-            "3 + 4 *5".parse::<Expr>().unwrap(),
+            lr_parser("3 + 4 *5").unwrap().1,
             Expr::mul(
                 Expr::add(Expr::Literal(3), Expr::Literal(4)),
                 Expr::Literal(5)
             )
         );
         assert_eq!(
-            "3 + (4*5)".parse::<Expr>().unwrap(),
+            lr_parser("3 + (4*5)").unwrap().1,
             Expr::add(
                 Expr::Literal(3),
                 Expr::mul(Expr::Literal(4), Expr::Literal(5))
@@ -130,6 +151,12 @@ mod test {
     #[test]
     fn normal1() {
         let raw = std::fs::read_to_string("data/day18.input").unwrap();
-        assert_eq!(solve1(&raw), 42);
+        assert_eq!(solve1(&raw), 25190263477788);
+    }
+
+    #[test]
+    fn normal2() {
+        let raw = std::fs::read_to_string("data/day18.input").unwrap();
+        assert_eq!(solve2(&raw), 297139939002972);
     }
 }
