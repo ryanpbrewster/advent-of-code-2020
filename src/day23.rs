@@ -1,53 +1,52 @@
-use std::collections::HashMap;
-
 struct Ring {
-    next: HashMap<i32, i32>,
-    cur: i32,
+    next: Vec<usize>,
+    cur: usize,
 }
 impl Ring {
-    fn to_vec(&self, init: i32) -> Vec<i32> {
+    fn to_vec(&self, init: usize) -> Vec<usize> {
         let mut xs = vec![init];
-        let mut cur = self.next[&init];
+        let mut cur = self.next[init];
         while cur != init {
             xs.push(cur);
-            cur = self.next[&cur];
+            cur = self.next[cur];
         }
         xs
     }
     fn step(&mut self) {
-        let snip0 = self.next[&self.cur];
-        let snip1 = self.next[&snip0];
-        let snip2 = self.next[&snip1];
-        let neighbor = self.next[&snip2];
+        let snip0 = self.next[self.cur];
+        let snip1 = self.next[snip0];
+        let snip2 = self.next[snip1];
+        let neighbor = self.next[snip2];
         let dest = {
             let mut target = self.cur - 1;
             if target < 1 {
-                target = self.next.len() as i32;
+                target = self.next.len() - 1;
             }
             while target == snip0 || target == snip1 || target == snip2 {
                 target -= 1;
                 if target < 1 {
-                    target = self.next.len() as i32;
+                    target = self.next.len() - 1;
                 }
             }
             target
         };
-        let dest1 = self.next[&dest];
+        let dest1 = self.next[dest];
 
-        *self.next.get_mut(&self.cur).unwrap() = neighbor;
-        *self.next.get_mut(&dest).unwrap() = snip0;
-        *self.next.get_mut(&snip2).unwrap() = dest1;
+        self.next[self.cur] = neighbor;
+        self.next[dest] = snip0;
+        self.next[snip2] = dest1;
         self.cur = neighbor;
     }
 }
-impl From<&[i32]> for Ring {
-    fn from(xs: &[i32]) -> Ring {
-        let mut prev = *xs.last().unwrap();
-        let mut next = HashMap::new();
-        for &cur in xs {
-            next.insert(prev, cur);
-            prev = cur;
+impl From<&[usize]> for Ring {
+    fn from(xs: &[usize]) -> Ring {
+        let mut next = vec![0; xs.len() + 1];
+        let mut prev = xs[0];
+        for &x in xs {
+            next[prev] = x;
+            prev = x;
         }
+        next[*xs.last().unwrap()] = xs[0];
         Ring { next, cur: xs[0] }
     }
 }
@@ -91,8 +90,8 @@ mod test {
             ring.step();
         }
 
-        let n1 = ring.next[&1];
-        let n2 = ring.next[&n1];
+        let n1 = ring.next[1];
+        let n2 = ring.next[n1];
         assert_eq!(n1 as i64 * n2 as i64, 218882971435);
     }
 }
