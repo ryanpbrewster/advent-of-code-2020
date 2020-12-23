@@ -1,16 +1,10 @@
-use std::collections::{hash_map::Entry, HashMap, HashSet};
+use std::collections::{hash_map::Entry, BTreeMap, HashMap, HashSet};
 
-use nom::character::is_alphabetic;
 use nom::{
-    branch::alt,
-    bytes::{
-        complete::{tag, take_while},
-        streaming::take_while1,
-    },
-    character::complete::{multispace0, multispace1, space1},
-    combinator::{all_consuming, map, map_res, value},
+    bytes::{complete::tag, streaming::take_while1},
+    character::complete::{multispace1, space1},
     multi::separated_list1,
-    sequence::{delimited, separated_pair},
+    sequence::delimited,
     IResult,
 };
 
@@ -44,7 +38,7 @@ fn token_parser(input: &str) -> IResult<&str, String> {
     Ok((input, token.to_owned()))
 }
 
-fn solve1(foods: &[Food]) -> usize {
+fn solve(foods: &[Food]) -> (usize, String) {
     type Ingredient = String;
     type Allergen = String;
     let mut candidates: HashMap<Allergen, HashSet<Ingredient>> = HashMap::new();
@@ -77,12 +71,24 @@ fn solve1(foods: &[Food]) -> usize {
         .flat_map(|food| food.ingredients.iter())
         .filter(|&ingredient| innocent.contains(ingredient))
         .count();
-    occurrences
+    let mut dangerous: BTreeMap<Allergen, Ingredient> = BTreeMap::new();
+    while dangerous.len() < candidates.len() {
+        let (ingredient, allergen) = {
+            let (ingredient, allergens) = candidates.iter().find(|(_, ps)| ps.len() == 1).unwrap();
+            (ingredient.clone(), allergens.iter().next().unwrap().clone())
+        };
+        dangerous.insert(ingredient.clone(), allergen.clone());
+        for allergens in candidates.values_mut() {
+            allergens.remove(&allergen);
+        }
+    }
+    let dangerous: Vec<Ingredient> = dangerous.values().cloned().collect();
+    (occurrences, dangerous.join(","))
 }
 
 #[cfg(test)]
 mod test {
-    use super::{food_parser, input_parser, solve1, token_parser, Food};
+    use super::{food_parser, input_parser, solve, token_parser, Food};
 
     #[test]
     fn parser_test() {
@@ -105,12 +111,16 @@ mod test {
     #[test]
     fn small1() {
         let parsed = input_parser(SMALL.trim()).unwrap().1;
-        assert_eq!(solve1(&parsed), 5);
+        let (p1, p2) = solve(&parsed);
+        assert_eq!(p1, 5);
+        assert_eq!(p2, "mxmxvkd,sqjhc,fvjkl");
     }
     #[test]
-    fn normal1() {
+    fn normal() {
         let raw = std::fs::read_to_string("data/day21.input").unwrap();
         let parsed = input_parser(raw.trim()).unwrap().1;
-        assert_eq!(solve1(&parsed), 5);
+        let (p1, p2) = solve(&parsed);
+        assert_eq!(p1, 2410);
+        assert_eq!(p2, "tmp,pdpgm,cdslv,zrvtg,ttkn,mkpmkx,vxzpfp,flnhl");
     }
 }
