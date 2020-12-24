@@ -96,8 +96,6 @@ fn solve1(input: &str) -> usize {
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashMap;
-
     use super::{solve1, Tile};
 
     #[test]
