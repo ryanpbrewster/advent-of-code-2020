@@ -1,15 +1,14 @@
-use std::collections::HashMap;
-
 fn solve(input: &str, n: usize) -> usize {
     let xs: Vec<usize> = input.split(',').map(|s| s.parse().unwrap()).collect();
-    let mut d = HashMap::new();
+    let mut d = vec![0; n];
     for (idx, &x) in xs.iter().enumerate() {
-        d.insert(x, idx + 1);
+        d[x] = idx + 1;
     }
     let mut cur = xs[xs.len() - 1];
     for i in xs.len()..n {
-        let prev = d.insert(cur, i);
-        cur = i - prev.unwrap_or(i);
+        let prev = d[cur];
+        d[cur] = i;
+        cur = if prev == 0 { 0 } else { i - prev };
     }
     cur
 }
