@@ -28,7 +28,7 @@ fn lr_parser(input: &str) -> IResult<&str, Expr> {
     let (input, t0) = lr_term_parser(input)?;
     fold_many0(
         pair(one_of("+*"), lr_term_parser),
-        t0,
+        move || t0.clone(),
         |acc, (op, term)| match op {
             '+' => Expr::add(acc, term),
             '*' => Expr::mul(acc, term),
@@ -49,15 +49,19 @@ fn lr_paren_parser(input: &str) -> IResult<&str, Expr> {
 
 fn mul_parser(input: &str) -> IResult<&str, Expr> {
     let (input, t0) = add_parser(input)?;
-    fold_many0(preceded(tag("*"), add_parser), t0, |acc, term| {
-        Expr::mul(acc, term)
-    })(input)
+    fold_many0(
+        preceded(tag("*"), add_parser),
+        move || t0.clone(),
+        |acc, term| Expr::mul(acc, term),
+    )(input)
 }
 fn add_parser(input: &str) -> IResult<&str, Expr> {
     let (input, t0) = mul_term_parser(input)?;
-    fold_many0(preceded(tag("+"), mul_term_parser), t0, |acc, term| {
-        Expr::add(acc, term)
-    })(input)
+    fold_many0(
+        preceded(tag("+"), mul_term_parser),
+        move || t0.clone(),
+        |acc, term| Expr::add(acc, term),
+    )(input)
 }
 fn mul_term_parser(input: &str) -> IResult<&str, Expr> {
     delimited(
